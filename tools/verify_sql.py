@@ -15,6 +15,16 @@ SRC = Path(sys.argv[1])
 DSN = "dbname=wms user=wms password=wms host=localhost"
 
 
+def java_text_block(raw):
+    """Java text-block rules (JLS 3.10.6) that matter for SQL: strip the common (incidental)
+    indentation, strip trailing whitespace on every line, then translate the \\s escape."""
+    lines = raw.split("\n")
+    significant = [l for l in lines[:-1] if l.strip()] + [lines[-1]]   # last line always counts
+    indent = min(len(l) - len(l.lstrip(" \t")) for l in significant)
+    out = [l[indent:].rstrip(" \t") for l in lines]
+    return "\n".join(out).replace("\\s", " ")
+
+
 def load_constants(path):
     text = path.read_text()
     consts = {}
@@ -26,8 +36,10 @@ def load_constants(path):
         for tb, s, ident in parts:
             if ident:
                 out += consts[ident]
-            elif tb or s:
-                out += tb or s
+            elif tb:
+                out += java_text_block(tb)
+            elif s:
+                out += s
         consts[name] = out
     return consts
 

@@ -19,6 +19,16 @@ SRC = Path(sys.argv[1])
 DSN = sys.argv[2] if len(sys.argv) > 2 else "dbname=wms_dev user=wms password=wms host=localhost"
 
 
+def java_text_block(raw):
+    """Java text-block rules (JLS 3.10.6) that matter for SQL: strip the common (incidental)
+    indentation, strip trailing whitespace on every line, then translate the \\s escape."""
+    lines = raw.split("\n")
+    significant = [l for l in lines[:-1] if l.strip()] + [lines[-1]]   # last line always counts
+    indent = min(len(l) - len(l.lstrip(" \t")) for l in significant)
+    out = [l[indent:].rstrip(" \t") for l in lines]
+    return "\n".join(out).replace("\\s", " ")
+
+
 def load_constants(path):
     text = path.read_text()
     consts = {}
@@ -26,7 +36,7 @@ def load_constants(path):
         name, expr = m.group(1), m.group(2)
         out = ""
         for tb, s, ident in re.findall(r'"""\n(.*?)"""|"((?:[^"\\]|\\.)*)"|(\b[A-Z_]{3,}\b)', expr, re.S):
-            out += consts[ident] if ident else (tb or s)
+            out += consts[ident] if ident else (java_text_block(tb) if tb else s)
         consts[name] = out
     return consts
 

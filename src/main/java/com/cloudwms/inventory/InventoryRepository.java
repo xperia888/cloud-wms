@@ -76,7 +76,7 @@ public class InventoryRepository {
                SET qty_on_hand = qty_on_hand - :qty,
                    version     = version + 1,
                    updated_at  = now()
-             WHERE """ + KEY_MATCH + """
+             WHERE\s""" + KEY_MATCH + """
 
                AND qty_on_hand - qty_allocated >= :qty
             RETURNING id, qty_on_hand, qty_allocated""";
@@ -88,7 +88,7 @@ public class InventoryRepository {
                    qty_allocated = qty_allocated - :qty,
                    version       = version + 1,
                    updated_at    = now()
-             WHERE """ + KEY_MATCH + """
+             WHERE\s""" + KEY_MATCH + """
 
                AND qty_allocated >= :qty
             RETURNING id, qty_on_hand, qty_allocated""";
@@ -99,7 +99,7 @@ public class InventoryRepository {
                SET qty_allocated = qty_allocated + :qty,
                    version       = version + 1,
                    updated_at    = now()
-             WHERE """ + KEY_MATCH + """
+             WHERE\s""" + KEY_MATCH + """
 
                AND qty_on_hand - qty_allocated >= :qty
             RETURNING id""";
@@ -110,7 +110,7 @@ public class InventoryRepository {
                SET qty_allocated = qty_allocated - :qty,
                    version       = version + 1,
                    updated_at    = now()
-             WHERE """ + KEY_MATCH + """
+             WHERE\s""" + KEY_MATCH + """
 
                AND qty_allocated >= :qty
             RETURNING id""";
