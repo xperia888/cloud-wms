@@ -123,8 +123,7 @@ curl localhost:8080/api/v1/inventory/reconcile -H 'X-Tenant-Id: 1'
 | `tools/verify_sql.py`：库存引擎 SQL 回放（收货、移库、防超卖、幂等、LPN、整托移动、流水不可改、并发扣减） | 24 / 24 通过 |
 | `tools/verify_outbound.py`：出库 SQL 回放（建单幂等、FEFO 分配、拣货打包、比价上下文、发货扣库存、计费事件、取消释放、库存不足回滚、两单并发分配） | 36 / 36 通过 |
 | 承运商模拟器 + RateShopper（单独 javac 编译运行：最低价 / 最快 / 时效限制 / 允许服务 / 地址无效 / 超时跳过 / 多箱面单 / 追踪号格式） | 15 / 15 通过 |
-| 全部业务代码类型检查（javac + Spring/Jackson 接口桩） | 通过 |
-| `mvn verify`（真实 Spring 依赖编译 + 11 个 Testcontainers 集成测试） | **尚未执行**：开发环境无法访问 Maven 中央仓库，请在本地首次构建时运行 |
+| `mvn verify`（真实 Spring 依赖编译 + 11 个 Testcontainers 集成测试，GitHub Actions） | 11 / 11 通过 |
 
 ```bash
 pip install psycopg2-binary
