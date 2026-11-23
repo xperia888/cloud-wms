@@ -16,7 +16,9 @@ for i in $(seq 1 60); do
   [ "$i" = 60 ] && fail "application did not start"
 done
 
-curl -sf "$BASE/" | grep -q "云仓控制台" && ok "首页（控制台网页）可访问" || fail "index.html"
+# 先存下内容再检查：curl | grep -q 在 pipefail 下会因 grep 提前退出（SIGPIPE）误报失败
+PAGE=$(curl -sf -H "Accept: text/html" "$BASE/") || fail "index.html request"
+[[ "$PAGE" == *"云仓控制台"* ]] && ok "首页（控制台网页）可访问" || fail "index.html content"
 
 [ "$(curl -sf "${H[@]}" "$API/ref/warehouses" | j "d[0]['code']")" = "LAX1" ] && ok "仓库列表" || fail "warehouses"
 [ "$(curl -sf "${H[@]}" "$API/ref/customers" | j "len(d)")" = "2" ] && ok "货主列表" || fail "customers"
@@ -47,7 +49,8 @@ ok "打单发货：$(echo "$SHIP" | j "d['carrierCode'] + ' ' + ','.join(d['trac
 VIEW=$(curl -sf "${H[@]}" "$API/outbound-orders/$OID")
 [ "$(echo "$VIEW" | j "d['status']")" = "SHIPPED" ] && ok "订单状态 SHIPPED" || fail "shipped status"
 PKG=$(echo "$VIEW" | j "d['packages'][0]['id']")
-curl -sf "${H[@]}" "$API/packages/$PKG/label" | grep -q '^\^XA' && ok "取回 ZPL 面单" || fail "label"
+LABEL=$(curl -sf "${H[@]}" "$API/packages/$PKG/label") || fail "label request"
+[[ "$LABEL" == "^XA"* ]] && ok "取回 ZPL 面单" || fail "label content"
 [ "$(curl -sf "${H[@]}" "$API/outbound-orders/$OID/shipments" | j "d[0]['status']")" = "LABELED" ] && ok "发运记录" || fail "shipments"
 [ "$(curl -sf "${H[@]}" "$API/billable-events?warehouseId=1" | j "len([e for e in d if e.get('order_no')])")" -ge 4 ] && ok "计费事件" || fail "billable events"
 
