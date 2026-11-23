@@ -21,6 +21,8 @@ src/main/java/com/cloudwms/
   inventory/                 库存引擎、LPN、库存 REST 接口
   carrier/                   CarrierAdapter 接口、模拟器、RateShopper 比价
   outbound/                  出库服务与 REST 接口
+  console/                   控制台用的只读查询接口
+src/main/resources/static/index.html   云仓控制台演示网页（无需构建，随系统启动）
 src/test/java/...            集成测试（Testcontainers，需要 Docker）
 tools/                       在 PostgreSQL 上回放 Java 中 SQL 的验证脚本
 ```
@@ -49,7 +51,11 @@ tools/                       在 PostgreSQL 上回放 Java 中 SQL 的验证脚�
 **Codespaces（浏览器里运行整个系统）**
 1. 仓库页面 → 绿色 **Code** 按钮 → **Codespaces** → **Create codespace on main**。首次创建约 3–5 分钟（安装 Java、Maven、PostgreSQL 并下载依赖）。
 2. 在下方终端运行：`mvn spring-boot:run -Dspring-boot.run.profiles=dev`
-3. 打开 `api-examples.http`，从上到下点击每段上方的 **Send Request**，即可走完建单 → 分配 → 拣货 → 打包 → 比价 → 发货 → 取面单。
+3. 启动后右下角会提示端口 8080 已转发，点 **Open in Browser**（或在 **Ports** 标签里点 8080 的地址），就能看到**云仓控制台**网页：
+   - 出库单：新建测试订单，按流程点“分配库存 → 确认拣货 → 完成打包 → 比价 → 打单发货”，发货后显示 4×6 模拟面单；
+   - 库存：按 SKU 汇总（在库 / 可用 / 可拣）与按库位、托盘号的明细；
+   - 计费：发货自动产生的计费事件与汇总。
+   开发人员也可以打开 `api-examples.http`，逐段点击 **Send Request** 直接调用接口。
 4. 用完在 github.com/codespaces 停止或删除，避免消耗免费额度。
 
 **Actions（自动编译测试）**：每次推送到 `main` 自动执行 `.github/workflows/ci.yml`：
@@ -65,7 +71,7 @@ tools/                       在 PostgreSQL 上回放 Java 中 SQL 的验证脚�
 createuser -P wms          # 密码 wms
 createdb -O wms wms
 
-# 2. 带测试数据与承运商模拟器启动
+# 2. 带测试数据与承运商模拟器启动，浏览器打开 http://localhost:8080 即为控制台网页
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 # 生产 / 真实承运商：不加 dev 配置，wms.carriers.mode=live（真实适配器尚未接入）
@@ -123,7 +129,8 @@ curl localhost:8080/api/v1/inventory/reconcile -H 'X-Tenant-Id: 1'
 | `tools/verify_sql.py`：库存引擎 SQL 回放（收货、移库、防超卖、幂等、LPN、整托移动、流水不可改、并发扣减） | 24 / 24 通过 |
 | `tools/verify_outbound.py`：出库 SQL 回放（建单幂等、FEFO 分配、拣货打包、比价上下文、发货扣库存、计费事件、取消释放、库存不足回滚、两单并发分配） | 36 / 36 通过 |
 | 承运商模拟器 + RateShopper（单独 javac 编译运行：最低价 / 最快 / 时效限制 / 允许服务 / 地址无效 / 超时跳过 / 多箱面单 / 追踪号格式） | 15 / 15 通过 |
-| `mvn verify`（真实 Spring 依赖编译 + 11 个 Testcontainers 集成测试，GitHub Actions） | 11 / 11 通过 |
+| `mvn verify`（真实 Spring 依赖编译 + Testcontainers 集成测试，GitHub Actions） | 见 Actions 页面 |
+| `tools/smoke_test.sh`：CI 中用 jar 真实启动系统，打开控制台网页并通过 HTTP 走完整条出库流程 | 见 Actions 页面 |
 
 ```bash
 pip install psycopg2-binary

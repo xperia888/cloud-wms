@@ -1,6 +1,7 @@
 package com.cloudwms.outbound;
 
 import com.cloudwms.carrier.CarrierModels.Address;
+import com.cloudwms.console.ConsoleQueryService;
 import com.cloudwms.inventory.InventoryService;
 import com.cloudwms.outbound.OutboundModels.CreateOrderRequest;
 import com.cloudwms.outbound.OutboundModels.LineRequest;
@@ -42,6 +43,7 @@ class OutboundServiceIT {
     @Autowired OutboundService outbound;
     @Autowired InventoryService inventory;
     @Autowired JdbcTemplate jdbc;
+    @Autowired ConsoleQueryService console;
 
     private long id(String sql) {
         return jdbc.queryForObject(sql, Long.class);
@@ -128,5 +130,36 @@ class OutboundServiceIT {
                 .isInstanceOf(OutboundException.class)
                 .hasMessageContaining("replenishment");
         assertThat(outbound.get(tenant, oid).status()).isEqualTo(OrderStatus.NEW);
+    }
+
+    @Test
+    void consoleQueriesReturnSeedDataAndShippedOrders() {
+        long tenant = id("SELECT id FROM tenant WHERE code = 'SELF'");
+        long wh = id("SELECT id FROM warehouse WHERE code = 'LAX1'");
+        long headlamp = id("SELECT id FROM sku WHERE sku_code = 'ACME-HEADLAMP'");
+
+        assertThat(console.warehouses(tenant)).extracting(r -> r.get("code")).containsExactly("LAX1");
+        assertThat(console.customers(tenant)).hasSize(2);
+        assertThat(console.boxTypes(tenant)).hasSize(5);
+        var chair = console.skus(tenant, wh).stream().filter(r -> "ACME-CHAIR".equals(r.get("sku_code"))).findFirst().orElseThrow();
+        assertThat(((Number) chair.get("qty_on_hand")).intValue()).isEqualTo(46);
+        assertThat(((Number) chair.get("qty_pickable")).intValue()).isLessThanOrEqualTo(6);   // 只算拣货位
+
+        long oid = outbound.createOrder(tenant, order("CQ-" + UUID.randomUUID(), "ACME-HEADLAMP", 1)).id();
+        outbound.allocate(tenant, oid);
+        outbound.confirmPick(tenant, oid);
+        outbound.pack(tenant, oid, new PackRequest(List.of(new PackageRequest("BOX-S", null, null, null,
+                new BigDecimal("0.8"), List.of(new PackItem(headlamp, 1))))));
+        var shipped = outbound.ship(tenant, oid, new OutboundModels.ShipRequest("USPS", "USPS_GROUND_ADV"), "tester");
+
+        var row = console.orders(tenant, wh, "SHIPPED", 100).stream()
+                .filter(r -> ((Number) r.get("id")).longValue() == oid).findFirst().orElseThrow();
+        assertThat(row.get("carrier_code")).isEqualTo("USPS");
+        assertThat(row.get("tracking_numbers")).isEqualTo(shipped.trackingNumbers().get(0));
+        assertThat(console.shipments(tenant, oid)).extracting(r -> r.get("status")).containsExactly("LABELED");
+        assertThat(console.shipments(tenant + 999, oid)).isEmpty();          // 租户隔离
+        assertThat(console.billableEvents(tenant, wh, null, 500))
+                .filteredOn(r -> String.valueOf(r.get("order_no")).equals(row.get("order_no")))
+                .hasSize(4);
     }
 }

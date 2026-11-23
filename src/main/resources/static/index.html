@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>云仓控制台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1F2A33;
+    --ink-soft: #52616D;
+    --paper: #F4F6F7;
+    --panel: #FFFFFF;
+    --line: #D6DDE2;
+    --tape: #F2B705;
+    --tape-deep: #C99700;
+    --ok: #2E7D4F;
+    --bad: #B3261E;
+    --info: #2F5D8A;
+    --sans: "Barlow", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    --code: "Barlow Condensed", "Arial Narrow", "PingFang SC", "Noto Sans SC", sans-serif;
+    --r-s: 4px;
+    --r-m: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: hidden; }
+  body {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }
+
+  /* ---------- top bar ---------- */
+  .bar {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    padding: 0 24px; min-height: 60px;
+    background: var(--ink); color: #fff;
+  }
+  .brand { font-family: var(--code); font-weight: 700; font-size: 24px; letter-spacing: .02em; }
+  .brand small { font-family: var(--sans); font-weight: 500; font-size: 14px; color: #B8C4CC; margin-left: 8px; letter-spacing: 0; }
+  .wh-select {
+    background: transparent; border: 1px solid #4A5A66; border-radius: var(--r-s);
+    color: #fff; padding: 4px 8px;
+  }
+  .wh-select option { color: var(--ink); }
+  nav.tabs { display: flex; gap: 4px; align-self: stretch; }
+  nav.tabs button {
+    background: none; border: 0; color: #B8C4CC; padding: 0 14px; cursor: pointer;
+    border-bottom: 4px solid transparent; font-weight: 600;
+  }
+  nav.tabs button[aria-selected="true"] { color: #fff; border-bottom-color: var(--tape); }
+  .recon { margin-left: auto; font-size: 14px; display: flex; align-items: center; gap: 8px; color: #DCE3E8; }
+  .recon .dot { width: 10px; height: 10px; border-radius: 50%; background: #7C8B96; }
+  .recon.ok .dot { background: #4CC37E; }
+  .recon.bad .dot { background: #FF6B5E; }
+
+  main { padding: 24px; max-width: 1440px; margin: 0 auto; }
+  [hidden] { display: none !important; }
+
+  h1, h2, h3 { margin: 0; font-weight: 700; line-height: 1.2; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 16px; }
+  .muted { color: var(--ink-soft); }
+  .code { font-family: var(--code); font-weight: 600; letter-spacing: .01em; }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); background: var(--panel);
+    border-radius: var(--r-s); padding: 8px 14px; cursor: pointer; font-weight: 600;
+  }
+  .btn:hover { border-color: var(--ink-soft); }
+  .btn.primary { background: var(--tape); border-color: var(--tape-deep); color: var(--ink); }
+  .btn.primary:hover { background: #FFC81A; }
+  .btn.danger { color: var(--bad); }
+  .btn[disabled] { opacity: .55; cursor: progress; }
+
+  /* ---------- orders layout ---------- */
+  .orders { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 24px; align-items: start; }
+  .list-panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-m); }
+  .list-head { display: flex; justify-content: space-between; align-items: center; padding: 16px; gap: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--paper); border-radius: 999px;
+    padding: 2px 10px; font-size: 13px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .order-list { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 230px); overflow: auto; border-top: 1px solid var(--line); }
+  .order-list li button {
+    width: 100%; text-align: left; background: none; border: 0; cursor: pointer;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr auto; gap: 2px 12px;
+  }
+  .order-list li button:hover { background: #F8FAFB; }
+  .order-list li button[aria-current="true"] { background: #FFF8E1; box-shadow: inset 4px 0 0 var(--tape); }
+  .order-list .no { font-family: var(--code); font-weight: 700; font-size: 18px; }
+  .order-list .meta { grid-column: 1 / -1; font-size: 13px; color: var(--ink-soft); }
+
+  .status {
+    font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; align-self: center;
+    background: #E8EDF0; color: var(--ink);
+  }
+  .status.SHIPPED { background: #DFF1E6; color: var(--ok); }
+  .status.CANCELLED { background: #F3E1DF; color: var(--bad); }
+  .status.PACKED, .status.PICKED, .status.ALLOCATED { background: #E3ECF5; color: var(--info); }
+
+  .detail { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-m); padding: 24px; min-height: 420px; }
+  .detail-head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .detail-head .no { font-family: var(--code); font-size: 40px; font-weight: 700; line-height: 1; }
+  .shipto { font-size: 14px; line-height: 1.45; text-align: right; }
+  .empty { display: grid; place-items: center; min-height: 360px; text-align: center; color: var(--ink-soft); }
+
+  /* ---------- flow rail: the floor-tape track ---------- */
+  .rail { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); margin: 28px 0 20px; padding: 0; counter-reset: step; }
+  .rail li { position: relative; padding: 14px 10px 10px; border-top: 6px solid var(--line); counter-increment: step; }
+  .rail li::before {
+    content: counter(step); position: absolute; top: -17px; left: 10px;
+    width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    font-family: var(--code); font-weight: 700; background: var(--panel); border: 2px solid var(--line); color: var(--ink-soft);
+  }
+  .rail .label { font-weight: 700; display: block; margin-top: 8px; }
+  .rail .when { font-size: 13px; color: var(--ink-soft); }
+  .rail li.done { border-top-color: var(--ink); }
+  .rail li.done::before { background: var(--ink); border-color: var(--ink); color: #fff; content: "✓"; font-family: var(--sans); }
+  .rail li.current {
+    border-top-color: transparent;
+    border-image: repeating-linear-gradient(-45deg, var(--tape) 0 10px, var(--ink) 10px 20px) 6;
+  }
+  .rail li.current::before { background: var(--tape); border-color: var(--ink); color: var(--ink); }
+  .rail.cancelled li { opacity: .45; }
+
+  .action {
+    border: 1px solid var(--line); border-left: 6px solid var(--tape); border-radius: var(--r-s);
+    padding: 16px 20px; display: grid; gap: 12px; background: #FFFDF5;
+  }
+  .action.closed { border-left-color: var(--ink); background: var(--paper); }
+  .action p { margin: 0; }
+  .row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+  label.field { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  label.field input, label.field select {
+    border: 1px solid var(--line); border-radius: var(--r-s); padding: 7px 10px; background: #fff; color: var(--ink); font-weight: 500; min-width: 120px;
+  }
+  .err {
+    border: 1px solid #E7B6B1; background: #FBEDEB; color: var(--bad);
+    border-radius: var(--r-s); padding: 10px 14px; font-size: 14px;
+  }
+  .note { font-size: 13px; color: var(--ink-soft); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { text-align: left; font-weight: 600; color: var(--ink-soft); font-size: 13px; padding: 8px 10px; border-bottom: 2px solid var(--line); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.best td { background: #FFF8E1; }
+  .section { margin-top: 28px; display: grid; gap: 10px; }
+
+  .tag {
+    font-family: var(--code); font-weight: 600; font-size: 15px;
+    border: 1px solid var(--ink); border-radius: 2px; padding: 0 6px; white-space: nowrap;
+  }
+  .tag.legacy { border-style: dashed; }
+
+  /* ---------- 4x6 thermal label ---------- */
+  .labels { display: flex; flex-wrap: wrap; gap: 20px; }
+  .label4x6 {
+    width: 300px; aspect-ratio: 4 / 6; background: #fff; color: #000;
+    border: 1px solid #000; box-shadow: 4px 4px 0 var(--line);
+    display: grid; grid-template-rows: auto auto 1fr auto auto; grid-template-columns: minmax(0, 1fr);
+    font-family: var(--sans); overflow: hidden;
+  }
+  .label4x6 > div { padding: 8px 12px; border-bottom: 2px solid #000; min-width: 0; }
+  .label4x6 > div:last-child { border-bottom: 0; }
+  .lb-carrier { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .lb-carrier b { font-family: var(--code); font-size: 34px; line-height: 1; }
+  .lb-small { font-size: 11px; line-height: 1.35; }
+  .lb-to { font-size: 15px; font-weight: 600; line-height: 1.3; }
+  .barcode { height: 70px; display: flex; align-items: stretch; gap: 0; overflow: hidden; justify-content: center; }
+  .barcode i { display: block; background: #000; }
+  .lb-track { text-align: center; font-family: var(--code); font-size: 17px; font-weight: 700; letter-spacing: .02em; overflow-wrap: anywhere; }
+  .lb-sim { background: #000; color: #fff; text-align: center; font-size: 11px; font-weight: 700; }
+  details pre { background: var(--paper); padding: 12px; border-radius: var(--r-s); white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 220px; overflow: auto; }
+
+  /* ---------- inventory / billing ---------- */
+  .page-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-m); padding: 16px 20px; overflow-x: auto; }
+  .panel + .panel { margin-top: 20px; }
+  .bar-cell { display: flex; align-items: center; gap: 8px; }
+  .meter { flex: 1; min-width: 80px; height: 8px; background: #E8EDF0; border-radius: 4px; overflow: hidden; }
+  .meter span { display: block; height: 100%; background: var(--ink); }
+  .totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .total { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-m); padding: 12px 16px; }
+  .total b { font-family: var(--code); font-size: 28px; display: block; line-height: 1.1; }
+
+  /* ---------- dialog ---------- */
+  dialog { border: 0; border-radius: var(--r-m); padding: 0; width: min(640px, 94vw); box-shadow: 0 20px 60px rgba(31, 42, 51, .35); }
+  dialog::backdrop { background: rgba(31, 42, 51, .45); }
+  dialog form { padding: 24px; display: grid; gap: 16px; }
+  .lines-edit { display: grid; gap: 8px; }
+  .lines-edit .row select { min-width: 260px; }
+  .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 10px 18px; border-radius: var(--r-s); font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .orders { grid-template-columns: 1fr; }
+    .order-list { max-height: 320px; }
+    .rail { grid-template-columns: repeat(5, minmax(56px, 1fr)); }
+    .rail .when { display: none; }
+    .rail .label { font-size: 13px; }
+    .detail { padding: 16px; }
+    .bar { padding: 8px 16px; gap: 12px; }
+    .recon { margin-left: 0; }
+    .detail-head .no { font-size: 30px; }
+    .shipto { text-align: left; }
+    main { padding: 16px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .rail li.current { animation: tape 1.2s ease-out 1; }
+    @keyframes tape { from { border-image-width: 0; opacity: .3; } to { opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">云仓控制台<small>演示版</small></div>
+  <select class="wh-select" id="wh" aria-label="仓库"></select>
+  <nav class="tabs" role="tablist" aria-label="功能">
+    <button role="tab" data-tab="orders" aria-selected="true">出库单</button>
+    <button role="tab" data-tab="inventory" aria-selected="false">库存</button>
+    <button role="tab" data-tab="billing" aria-selected="false">计费</button>
+  </nav>
+  <div class="recon" id="recon" title="库存余额与流水累计是否一致"><span class="dot"></span><span id="recon-text">正在核对库存</span></div>
+</header>
+
+<main>
+  <!-- ======================= 出库单 ======================= -->
+  <section id="tab-orders" class="orders">
+    <div class="list-panel">
+      <div class="list-head">
+        <h2>出库单</h2>
+        <button class="btn primary" id="new-order">新建测试订单</button>
+      </div>
+      <div class="chips" id="status-chips" role="group" aria-label="按状态筛选"></div>
+      <ul class="order-list" id="order-list"></ul>
+    </div>
+    <div class="detail" id="detail">
+      <div class="empty"><div><h3>选择左侧的订单</h3><p>或新建一张测试订单，从分配库存一路走到打单发货。</p></div></div>
+    </div>
+  </section>
+
+  <!-- ======================= 库存 ======================= -->
+  <section id="tab-inventory" hidden>
+    <div class="page-head">
+      <h2>库存</h2>
+      <div class="filters">
+        <label class="field">货主<select id="inv-customer"><option value="">全部货主</option></select></label>
+        <label class="field">查找<input id="inv-q" placeholder="SKU、库位或托盘号"></label>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>按 SKU 汇总</h3>
+      <p class="note">可拣 = 拣货货架上未分配的数量，出库分配只用这部分；整托储位的货需要先补货到拣货位。</p>
+      <table>
+        <thead><tr><th>SKU</th><th>品名</th><th>货主</th><th class="num">在库</th><th class="num">可用</th><th>可拣</th></tr></thead>
+        <tbody id="sku-body"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>按库位明细</h3>
+      <table>
+        <thead><tr><th>库位</th><th>托盘号</th><th>货主</th><th>SKU</th><th>批次</th><th>状态</th><th class="num">在库</th><th class="num">已分配</th><th class="num">可用</th></tr></thead>
+        <tbody id="bal-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================= 计费 ======================= -->
+  <section id="tab-billing" hidden>
+    <div class="page-head">
+      <div>
+        <h2>计费事件</h2>
+        <p class="note">发货时自动记录的待计费数据。按费率卡计价、生成月结 Invoice 在 P3 实现。</p>
+      </div>
+      <div class="filters">
+        <label class="field">货主<select id="bill-customer"><option value="">全部货主</option></select></label>
+      </div>
+    </div>
+    <div class="totals" id="bill-totals"></div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>时间</th><th>货主</th><th>订单</th><th>类型</th><th class="num">数量</th><th class="num">成本（USD）</th></tr></thead>
+        <tbody id="bill-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- ======================= 新建订单 ======================= -->
+<dialog id="order-dialog" aria-labelledby="dlg-title">
+  <form method="dialog" id="order-form">
+    <h2 id="dlg-title">新建测试订单</h2>
+    <div class="row">
+      <label class="field">货主<select id="f-customer" required></select></label>
+      <label class="field">收件地址<select id="f-shipto"></select></label>
+    </div>
+    <div class="lines-edit" id="f-lines"></div>
+    <div><button type="button" class="btn" id="f-add-line">添加一行商品</button></div>
+    <label class="field">承运服务<select id="f-service"></select></label>
+    <div class="err" id="f-err" hidden></div>
+    <div class="dialog-foot">
+      <button type="button" class="btn" id="f-cancel">取消</button>
+      <button type="submit" class="btn primary" id="f-submit">创建订单</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+"use strict";
+const TENANT = 1;                // 认证接入前：dev 测试数据的租户
+const OPERATOR = "console";
+const API = "/api/v1";
+
+const STATUS = {
+  NEW: "待分配", ALLOCATED: "已分配", PICKED: "已拣货", PACKED: "已打包", SHIPPED: "已发货", CANCELLED: "已取消"
+};
+const FLOW = [
+  { s: "NEW", label: "建单" },
+  { s: "ALLOCATED", label: "分配" },
+  { s: "PICKED", label: "拣货" },
+  { s: "PACKED", label: "打包" },
+  { s: "SHIPPED", label: "发货" }
+];
+const EVENT = {
+  ORDER_FULFILLMENT: "订单操作", PICK_UNIT: "拣货件数", PACKAGE: "包裹", SHIPPING_LABEL: "运费成本"
+};
+const ERR = {
+  INSUFFICIENT_STOCK: "拣货位库存不足", INSUFFICIENT_AVAILABLE: "可用库存不足", CARRIER_ERROR: "承运商返回错误",
+  NO_RATE: "没有符合发运规则的报价", INVALID_STATE: "订单状态已变化，请刷新", INVALID_REQUEST: "请求有误",
+  NOT_FOUND: "找不到记录", CONSTRAINT_VIOLATION: "数据校验未通过"
+};
+const SERVICES = [
+  ["", "比价后自动选择"],
+  ["UPS:UPS_GROUND", "UPS Ground"], ["UPS:UPS_2DAY", "UPS 2nd Day Air"],
+  ["FEDEX:FEDEX_HOME", "FedEx Home Delivery"], ["FEDEX:FEDEX_GROUND", "FedEx Ground（商业地址）"],
+  ["USPS:USPS_GROUND_ADV", "USPS Ground Advantage"], ["USPS:USPS_PRIORITY", "USPS Priority Mail"]
+];
+const SHIP_TO = [
+  { label: "住宅 · San Francisco, CA 94105", a: { name: "Sam Ortiz", address1: "1 Market St", city: "San Francisco", state: "CA", zip: "94105", country: "US", phone: "4155550100", residential: true } },
+  { label: "住宅 · Miami, FL 33139", a: { name: "Morgan Diaz", address1: "12 Ocean Ave", city: "Miami", state: "FL", zip: "33139", country: "US", phone: "3055550188", residential: true } },
+  { label: "商业 · Boulder, CO 80302", a: { name: "Taylor Brooks", company: "Trailhead Outfitters", address1: "500 Main St", city: "Boulder", state: "CO", zip: "80302", country: "US", phone: "3035550123", residential: false } },
+  { label: "测试：地址无效（邮编 00000）", a: { name: "Test Invalid", address1: "1 Nowhere Rd", city: "Nowhere", state: "XX", zip: "00000", country: "US", residential: true } },
+  { label: "测试：承运商超时（邮编 99999）", a: { name: "Test Timeout", address1: "9 Slow Ln", city: "Juneau", state: "AK", zip: "99999", country: "US", residential: true } }
+];
+const CARRIER_NAME = { UPS: "UPS", FEDEX: "FedEx", USPS: "USPS", DHL_ECOM: "DHL eCommerce" };
+
+const state = {
+  wh: null, warehouses: [], customers: [], skus: [], boxes: [],
+  orders: [], filter: "", selected: null, order: null, quotes: null, busy: false, error: null
+};
+
+// ---------------------------------------------------------------- helpers
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = (v) => v == null ? "" : Number(v).toFixed(2);
+const qty = (v) => v == null ? "0" : Number(v).toLocaleString("en-US");
+const when = (v) => v ? new Date(v).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const custCode = (id) => (state.customers.find((c) => c.id === id) || {}).code || id;
+
+class ApiError extends Error {
+  constructor(status, body) {
+    super((body && (ERR[body.code] ? ERR[body.code] + "：" : "") + (body.message || "")) || "请求失败（HTTP " + status + "）");
+    this.status = status; this.code = body && body.code;
+  }
+}
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    method: opts.method || "GET",
+    headers: Object.assign({ "X-Tenant-Id": TENANT, "X-Operator": OPERATOR },
+      opts.body ? { "Content-Type": "application/json" } : {}),
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const text = await res.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+  if (!res.ok) throw new ApiError(res.status, typeof body === "object" ? body : null);
+  return body;
+}
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600);
+}
+
+// ---------------------------------------------------------------- boot
+async function boot() {
+  try {
+    state.warehouses = await api("/ref/warehouses");
+  } catch (e) {
+    $("#detail").innerHTML = `<div class="empty"><div><h3>连不上后端</h3><p>${esc(e.message)}</p><p class="note">请确认已用 dev 配置启动：mvn spring-boot:run -Dspring-boot.run.profiles=dev</p></div></div>`;
+    return;
+  }
+  $("#wh").innerHTML = state.warehouses.map((w) => `<option value="${w.id}">${esc(w.code)} · ${esc(w.name)}</option>`).join("");
+  state.wh = state.warehouses.length ? state.warehouses[0].id : null;
+  [state.customers, state.boxes] = await Promise.all([api("/ref/customers"), api("/ref/box-types")]);
+  const custOpts = state.customers.map((c) => `<option value="${c.id}">${esc(c.code)} · ${esc(c.name)}</option>`).join("");
+  $("#inv-customer").insertAdjacentHTML("beforeend", custOpts);
+  $("#bill-customer").insertAdjacentHTML("beforeend", custOpts);
+  $("#f-customer").innerHTML = custOpts;
+  $("#f-shipto").innerHTML = SHIP_TO.map((s, i) => `<option value="${i}">${esc(s.label)}</option>`).join("");
+  $("#f-service").innerHTML = SERVICES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("");
+  renderChips();
+  await Promise.all([loadOrders(), loadSkus(), checkRecon()]);
+}
+
+async function checkRecon() {
+  const el = $("#recon");
+  try {
+    const diffs = await api("/inventory/reconcile");
+    el.className = "recon " + (diffs.length ? "bad" : "ok");
+    $("#recon-text").textContent = diffs.length ? `库存对账差异 ${diffs.length} 行` : "库存对账一致";
+  } catch (e) {
+    el.className = "recon bad"; $("#recon-text").textContent = "对账检查失败";
+  }
+}
+async function loadSkus() { state.skus = await api(`/ref/skus?warehouseId=${state.wh}`); }
+
+// ---------------------------------------------------------------- tabs
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav.tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+  for (const t of ["orders", "inventory", "billing"]) $("#tab-" + t).hidden = t !== b.dataset.tab;
+  if (b.dataset.tab === "inventory") loadInventory();
+  if (b.dataset.tab === "billing") loadBilling();
+}));
+$("#wh").addEventListener("change", async (e) => {
+  state.wh = Number(e.target.value); state.selected = null; state.order = null;
+  await Promise.all([loadOrders(), loadSkus()]); renderDetail();
+});
+
+// ---------------------------------------------------------------- orders list
+function renderChips() {
+  const opts = [["", "全部"], ...Object.entries(STATUS)];
+  $("#status-chips").innerHTML = opts.map(([v, l]) =>
+    `<button class="chip" data-v="${v}" aria-pressed="${state.filter === v}">${l}</button>`).join("");
+  $("#status-chips").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    state.filter = b.dataset.v; renderChips(); loadOrders();
+  }));
+}
+async function loadOrders() {
+  const q = state.filter ? `&status=${state.filter}` : "";
+  state.orders = await api(`/outbound-orders?warehouseId=${state.wh}${q}`);
+  renderList();
+}
+function renderList() {
+  const ul = $("#order-list");
+  if (!state.orders.length) {
+    ul.innerHTML = `<li><p class="muted" style="padding:16px;margin:0">这个状态下没有订单。</p></li>`; return;
+  }
+  ul.innerHTML = state.orders.map((o) => `
+    <li><button data-id="${o.id}" aria-current="${o.id === state.selected}">
+      <span class="no">${esc(o.order_no)}</span>
+      <span class="status ${o.status}">${STATUS[o.status] || o.status}</span>
+      <span class="meta">${esc(o.customer_code)} · ${esc(o.ship_to_city || "")}${o.ship_to_state ? ", " + esc(o.ship_to_state) : ""} · ${qty(o.units)} 件${o.carrier_code ? " · " + esc(CARRIER_NAME[o.carrier_code] || o.carrier_code) : ""}</span>
+    </button></li>`).join("");
+  ul.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => selectOrder(Number(b.dataset.id))));
+}
+async function selectOrder(id) {
+  state.selected = id; state.quotes = null; state.error = null;
+  renderList();
+  await refreshOrder();
+}
+async function refreshOrder() {
+  if (!state.selected) return;
+  const [order, shipments] = await Promise.all([
+    api(`/outbound-orders/${state.selected}`), api(`/outbound-orders/${state.selected}/shipments`)
+  ]);
+  state.order = order; state.order.shipments = shipments;
+  renderDetail();
+}
+
+// ---------------------------------------------------------------- order detail
+function renderDetail() {
+  const o = state.order, el = $("#detail");
+  if (!o) { el.innerHTML = `<div class="empty"><div><h3>选择左侧的订单</h3><p>或新建一张测试订单，从分配库存一路走到打单发货。</p></div></div>`; return; }
+  const idx = FLOW.findIndex((f) => f.s === o.status);
+  const cancelled = o.status === "CANCELLED";
+  const rail = FLOW.map((f, i) => {
+    const cls = cancelled ? "" : i <= idx ? "done" : i === idx + 1 ? "current" : "";
+    const ts = i === 0 ? when(o.createdAt) : (i === 4 && o.shippedAt) ? when(o.shippedAt) : "";
+    return `<li class="${cls}"${cls === "current" ? ' aria-current="step"' : ""}><span class="label">${f.label}</span><span class="when">${ts || "&nbsp;"}</span></li>`;
+  }).join("");
+  const t = o.shipTo || {};
+  el.innerHTML = `
+    <div class="detail-head">
+      <div>
+        <div class="no">${esc(o.orderNo)}</div>
+        <p class="muted" style="margin:8px 0 0">${esc(custCode(o.customerId))} · 来源 ${esc(o.source)} · 外部单号 <span class="code">${esc(o.externalOrderNo)}</span></p>
+        ${o.requestedService ? `<p class="note" style="margin:4px 0 0">货主指定服务：${esc(o.requestedService)}</p>` : ""}
+      </div>
+      <div class="shipto">
+        <strong>${esc(t.name)}</strong>${t.company ? "<br>" + esc(t.company) : ""}<br>
+        ${esc(t.address1)}<br>${esc(t.city)}, ${esc(t.state)} ${esc(t.zip)}<br>
+        <span class="muted">${t.residential ? "住宅地址" : "商业地址"}</span>
+      </div>
+    </div>
+    <ol class="rail${cancelled ? " cancelled" : ""}" aria-label="订单进度">${rail}</ol>
+    <div id="action"></div>
+    <div class="section">
+      <h3>商品</h3>
+      <table>
+        <thead><tr><th>#</th><th>SKU</th><th class="num">订购</th><th class="num">已分配</th><th class="num">已拣</th><th class="num">已发</th></tr></thead>
+        <tbody>${o.lines.map((l) => `<tr><td>${l.lineNo}</td><td class="code">${esc(l.skuCode)}</td>
+          <td class="num">${l.qtyOrdered}</td><td class="num">${l.qtyAllocated}</td><td class="num">${l.qtyPicked}</td><td class="num">${l.qtyShipped}</td></tr>`).join("")}</tbody>
+      </table>
+    </div>
+    ${renderShipmentHistory(o)}`;
+  renderAction();
+}
+
+function renderShipmentHistory(o) {
+  const failed = (o.shipments || []).filter((s) => s.status !== "LABELED");
+  if (!failed.length) return "";
+  return `<div class="section"><h3>打单记录</h3><table><thead><tr><th>时间</th><th>服务</th><th>结果</th></tr></thead><tbody>
+    ${failed.map((s) => `<tr><td>${when(s.created_at)}</td><td>${esc(s.service_name || s.service_code)}</td>
+      <td>${s.status === "FAILED" ? "失败：" : s.status === "VOIDED" ? "已作废：" : ""}${esc(s.error || s.status)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+function errBox() { return state.error ? `<div class="err" role="alert">${esc(state.error)}</div>` : ""; }
+function cancelBtn() { return `<button class="btn danger" data-act="cancel">取消订单</button>`; }
+
+function renderAction() {
+  const o = state.order, box = $("#action");
+  const busy = state.busy ? " disabled" : "";
+  let html = "";
+  switch (o.status) {
+    case "NEW":
+      html = `<div class="action"><h3>下一步：分配库存</h3>
+        <p>从拣货货架上锁定这张订单要的货，先到期的批次先出。拣货位不够时整单不分配。</p>
+        ${errBox()}<div class="row"><button class="btn primary" data-act="allocate"${busy}>分配库存</button>${cancelBtn()}</div></div>`;
+      break;
+    case "ALLOCATED":
+      html = `<div class="action"><h3>下一步：拣货</h3>
+        <p>按分配结果到货架拣货，拣完后确认。演示版按整单确认，PDA 逐行扫码在后续版本加入。</p>
+        ${allocationHint(o)}${errBox()}<div class="row"><button class="btn primary" data-act="pick"${busy}>确认拣货完成</button>${cancelBtn()}</div></div>`;
+      break;
+    case "PICKED": {
+      const est = estimateWeight(o);
+      html = `<div class="action"><h3>下一步：打包称重</h3>
+        <p>全部商品装进一个箱子，选箱型并填写称重结果（已按商品重量预估）。</p>
+        <div class="row">
+          <label class="field">箱型<select id="pk-box">${state.boxes.map((b) =>
+            `<option value="${esc(b.code)}" ${b.code === est.box ? "selected" : ""}>${esc(b.code)}（${Number(b.length_in)}×${Number(b.width_in)}×${Number(b.height_in)} in）</option>`).join("")}</select></label>
+          <label class="field">重量（lb）<input id="pk-weight" type="number" min="0.1" step="0.1" value="${est.lb}"></label>
+        </div>${errBox()}
+        <div class="row"><button class="btn primary" data-act="pack"${busy}>完成打包</button>${cancelBtn()}</div></div>`;
+      break;
+    }
+    case "PACKED":
+      html = renderRates(o, busy);
+      break;
+    case "SHIPPED":
+      html = renderLabels(o);
+      break;
+    case "CANCELLED":
+      html = `<div class="action closed"><h3>订单已取消</h3><p>分配的库存已释放回可用。</p></div>`;
+      break;
+  }
+  box.innerHTML = html;
+  box.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => act(b.dataset.act)));
+  box.querySelectorAll("input[name=quote]").forEach((r) => r.addEventListener("change", () => (state.pick = r.value)));
+  const zpl = box.querySelectorAll("details[data-pkg]");
+  zpl.forEach((d) => d.addEventListener("toggle", async () => {
+    if (!d.open || d.dataset.loaded) return;
+    d.dataset.loaded = "1";
+    try {
+      const res = await fetch(`${API}/packages/${d.dataset.pkg}/label`, { headers: { "X-Tenant-Id": TENANT } });
+      d.querySelector("pre").textContent = await res.text();
+    } catch (e) { d.querySelector("pre").textContent = e.message; }
+  }));
+}
+
+function allocationHint(o) {
+  const units = o.lines.reduce((s, l) => s + l.qtyAllocated, 0);
+  return `<p class="note">已分配 ${units} 件。</p>`;
+}
+
+function estimateWeight(o) {
+  let lb = 0;
+  for (const l of o.lines) {
+    const s = state.skus.find((x) => x.id === l.skuId);
+    lb += (s && s.weight_lb ? Number(s.weight_lb) : 1) * l.qtyPicked;
+  }
+  const units = o.lines.reduce((s, l) => s + l.qtyPicked, 0);
+  const box = lb > 12 ? "BOX-L" : lb > 3 || units > 3 ? "BOX-M" : "BOX-S";
+  const b = state.boxes.find((x) => x.code === box);
+  return { box, lb: (lb + (b ? Number(b.tare_lb) : 0.5)).toFixed(1) };
+}
+
+function renderRates(o, busy) {
+  const q = state.quotes;
+  let body;
+  if (!q) {
+    body = `<p>向 UPS、FedEx、USPS 同时询价，按货主的发运规则推荐最优服务。超过 3 秒没有回应的承运商会被跳过。</p>
+      ${errBox()}<div class="row"><button class="btn primary" data-act="rates"${busy}>比价</button>${cancelBtn()}</div>`;
+  } else {
+    const key = (x) => x.carrierCode + ":" + x.serviceCode;
+    const bestKey = q.best ? key(q.best) : null;
+    if (!state.pick) state.pick = (o.requestedService && q.quotes.some((x) => key(x) === o.requestedService)) ? o.requestedService : bestKey;
+    const errs = Object.entries(q.errors || {});
+    body = `<p>价格为模拟器估算，不是真实协议价。${o.requestedService ? "这张订单货主指定了服务，已默认选中。" : ""}</p>
+      ${q.quotes.length ? `<table><thead><tr><th></th><th>承运商</th><th>服务</th><th class="num">时效（天）</th><th class="num">运费（USD）</th><th></th></tr></thead><tbody>
+      ${q.quotes.map((x) => `<tr class="${key(x) === bestKey ? "best" : ""}">
+        <td><input type="radio" name="quote" value="${esc(key(x))}" aria-label="${esc(x.serviceCode)}" ${key(x) === state.pick ? "checked" : ""}></td>
+        <td>${esc(CARRIER_NAME[x.carrierCode] || x.carrierCode)}</td><td class="code">${esc(x.serviceCode)}</td>
+        <td class="num">${x.transitDays ?? ""}</td><td class="num">${money(x.amount)}</td>
+        <td>${key(x) === bestKey ? "<strong>推荐</strong>" : ""}</td></tr>`).join("")}
+      </tbody></table>` : `<p><strong>没有拿到任何报价。</strong>请检查收件地址，或稍后重新比价。</p>`}
+      ${q.quotes.length && !q.best ? `<p class="note">没有服务符合发运规则（例如送达时效限制），可以手动选择。</p>` : ""}
+      ${errs.length ? `<p class="note">未参与比价：${errs.map(([c, m]) => esc(m.startsWith(c) ? m : (CARRIER_NAME[c] || c) + ": " + m)).join("；")}</p>` : ""}
+      ${errBox()}
+      <div class="row"><button class="btn primary" data-act="ship"${busy}${q.quotes.length ? "" : " disabled"}>按所选服务打单发货</button>
+      <button class="btn" data-act="rates"${busy}>重新比价</button>${cancelBtn()}</div>`;
+  }
+  return `<div class="action"><h3>下一步：比价并打单</h3>${body}</div>`;
+}
+
+function renderLabels(o) {
+  const sh = (o.shipments || []).find((s) => s.status === "LABELED") || {};
+  const t = o.shipTo || {};
+  const wh = state.warehouses.find((w) => w.id === o.warehouseId) || {};
+  const total = o.packages.length;
+  const labels = o.packages.map((p) => `
+    <div>
+      <div class="label4x6" role="img" aria-label="${esc(sh.carrier_code)} 面单 ${esc(p.trackingNo)}">
+        <div class="lb-carrier"><b>${esc(CARRIER_NAME[sh.carrier_code] || sh.carrier_code || "")}</b><span class="lb-small">${p.packageNo} / ${total} · ${Number(p.weightLb)} LB</span></div>
+        <div class="lb-small">发件：${esc(wh.name || wh.code || "")}<br>1000 E Example Ave, Ontario, CA 91761</div>
+        <div class="lb-to">${esc(t.name)}${t.company ? "<br>" + esc(t.company) : ""}<br>${esc(t.address1)}<br>${esc(t.city)}, ${esc(t.state)} ${esc(t.zip)}</div>
+        <div><div class="barcode" aria-hidden="true">${bars(p.trackingNo || "")}</div><div class="lb-track">${esc(p.trackingNo)}</div></div>
+        <div class="lb-sim">${esc(sh.service_name || sh.service_code || "")} · 模拟面单，不可用于实际发货</div>
+      </div>
+      <details data-pkg="${p.id}" style="margin-top:10px;width:300px"><summary>查看 ZPL 原文</summary><pre>正在加载…</pre></details>
+    </div>`).join("");
+  return `<div class="action closed"><h3>已发货</h3>
+    <p>${esc(sh.service_name || sh.service_code || "")}，运费 ${money(sh.total_cost)} USD，${total} 个包裹。库存已按分配扣减，计费事件已记录。</p>
+    <div class="labels">${labels}</div></div>`;
+}
+
+/** 装饰性条码：按追踪号字符生成粗细条，仅用于预览 */
+function bars(s) {
+  let h = "", x = 0;
+  for (const ch of s) {
+    const c = ch.charCodeAt(0);
+    for (let k = 0; k < 3; k++) {
+      const w = 1 + ((c >> k) & 1) + ((c + k) % 3 === 0 ? 1 : 0);
+      h += `<i style="width:${w}px;margin-right:${1 + ((c >> (k + 2)) & 1)}px"></i>`;
+      x++;
+    }
+  }
+  return h;
+}
+
+// ---------------------------------------------------------------- actions
+async function act(kind) {
+  if (state.busy) return;
+  const o = state.order;
+  state.busy = true; state.error = null; renderAction();
+  try {
+    if (kind === "allocate") { await api(`/outbound-orders/${o.id}/allocate`, { method: "POST" }); toast("已分配库存"); }
+    if (kind === "pick") { await api(`/outbound-orders/${o.id}/pick`, { method: "POST" }); toast("已确认拣货"); }
+    if (kind === "pack") {
+      const items = o.lines.filter((l) => l.qtyPicked > 0).map((l) => ({ skuId: l.skuId, qty: l.qtyPicked }));
+      const merged = Object.values(items.reduce((m, i) => { (m[i.skuId] ||= { skuId: i.skuId, qty: 0 }).qty += i.qty; return m; }, {}));
+      await api(`/outbound-orders/${o.id}/pack`, { method: "POST", body: { packages: [{
+        boxType: $("#pk-box").value, weightLb: Number($("#pk-weight").value), items: merged }] } });
+      toast("已完成打包");
+    }
+    if (kind === "rates") {
+      state.pick = null;
+      state.quotes = await api(`/outbound-orders/${o.id}/rates`, { method: "POST" });
+    }
+    if (kind === "ship") {
+      const [carrierCode, serviceCode] = (state.pick || "").split(":");
+      const r = await api(`/outbound-orders/${o.id}/ship`, { method: "POST", body: carrierCode ? { carrierCode, serviceCode } : null });
+      toast(`已发货，追踪号 ${r.trackingNumbers.join("、")}`);
+      state.quotes = null; state.pick = null;
+    }
+    if (kind === "cancel") {
+      if (!confirm(`取消订单 ${o.orderNo}？已分配的库存会释放。`)) { state.busy = false; renderAction(); return; }
+      await api(`/outbound-orders/${o.id}/cancel`, { method: "POST" }); toast("订单已取消");
+      state.quotes = null;
+    }
+    state.busy = false;
+    await Promise.all([refreshOrder(), loadOrders(), loadSkus()]);
+    if (kind !== "rates") checkRecon();
+  } catch (e) {
+    state.busy = false; state.error = e.message;
+    if (e.code === "INVALID_STATE" || e.code === "CARRIER_ERROR") { await refreshOrder(); await loadOrders(); }
+    else renderAction();
+  }
+}
+
+// ---------------------------------------------------------------- new order dialog
+const dlg = $("#order-dialog");
+$("#new-order").addEventListener("click", async () => {
+  await loadSkus();
+  $("#f-lines").innerHTML = ""; $("#f-err").hidden = true;
+  addLine(); dlg.showModal();
+});
+$("#f-cancel").addEventListener("click", () => dlg.close());
+$("#f-add-line").addEventListener("click", () => addLine());
+$("#f-customer").addEventListener("change", () => { $("#f-lines").innerHTML = ""; addLine(); });
+function skuOptions() {
+  const cid = Number($("#f-customer").value);
+  return state.skus.filter((s) => s.customer_id === cid).map((s) =>
+    `<option value="${esc(s.sku_code)}">${esc(s.sku_code)} · ${esc(s.name)}（可拣 ${qty(s.qty_pickable)}）</option>`).join("");
+}
+function addLine() {
+  const n = $("#f-lines").children.length + 1;
+  $("#f-lines").insertAdjacentHTML("beforeend", `<div class="row">
+    <label class="field">商品 ${n}<select class="l-sku">${skuOptions()}</select></label>
+    <label class="field">数量<input class="l-qty" type="number" min="1" value="1" style="width:90px"></label></div>`);
+}
+$("#order-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const lines = [...$("#f-lines").querySelectorAll(".row")].map((r) => ({
+    skuCode: r.querySelector(".l-sku").value, qty: Number(r.querySelector(".l-qty").value) }))
+    .filter((l) => l.skuCode && l.qty > 0);
+  if (!lines.length) { $("#f-err").textContent = "至少要有一行商品，数量大于 0。"; $("#f-err").hidden = false; return; }
+  const btn = $("#f-submit"); btn.disabled = true;
+  try {
+    const o = await api("/outbound-orders", { method: "POST", body: {
+      warehouseId: state.wh, customerId: Number($("#f-customer").value), source: "CONSOLE",
+      externalOrderNo: "DEMO-" + Date.now(), shipTo: SHIP_TO[Number($("#f-shipto").value)].a,
+      requestedService: $("#f-service").value || null, lines } });
+    dlg.close(); toast(`已创建订单 ${o.orderNo}`);
+    state.filter = ""; renderChips(); await loadOrders(); await selectOrder(o.id);
+  } catch (err) {
+    $("#f-err").textContent = err.message; $("#f-err").hidden = false;
+  } finally { btn.disabled = false; }
+});
+
+// ---------------------------------------------------------------- inventory
+let balances = [];
+async function loadInventory() {
+  await loadSkus();
+  balances = await api(`/inventory?warehouseId=${state.wh}&limit=1000`);
+  renderInventory();
+  checkRecon();
+}
+$("#inv-customer").addEventListener("change", renderInventory);
+$("#inv-q").addEventListener("input", renderInventory);
+function renderInventory() {
+  const cid = Number($("#inv-customer").value) || null;
+  const q = $("#inv-q").value.trim().toUpperCase();
+  const skus = state.skus.filter((s) => (!cid || s.customer_id === cid) && (!q || s.sku_code.toUpperCase().includes(q)));
+  $("#sku-body").innerHTML = skus.map((s) => {
+    const pct = Number(s.qty_available) ? Math.round(100 * Number(s.qty_pickable) / Number(s.qty_available)) : 0;
+    return `<tr><td class="code">${esc(s.sku_code)}</td><td>${esc(s.name)}</td><td>${esc(custCode(s.customer_id))}</td>
+      <td class="num">${qty(s.qty_on_hand)}</td><td class="num">${qty(s.qty_available)}</td>
+      <td><div class="bar-cell"><span class="num" style="min-width:44px;text-align:right">${qty(s.qty_pickable)}</span>
+      <span class="meter" title="可拣占可用 ${pct}%"><span style="width:${pct}%"></span></span></div></td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="muted">没有符合条件的 SKU。</td></tr>`;
+  const rows = balances.filter((b) => (!cid || b.customerId === cid) && (!q ||
+    [b.skuCode, b.locationCode, b.lpnNo].some((v) => v && v.toUpperCase().includes(q))));
+  $("#bal-body").innerHTML = rows.map((b) => `<tr>
+    <td class="code">${esc(b.locationCode)}</td>
+    <td>${b.lpnNo ? `<span class="tag${b.lpnNo.startsWith("LP") ? "" : " legacy"}" title="${b.lpnNo.startsWith("LP") ? "本系统托盘号" : "旧系统迁移托盘号"}">${esc(b.lpnNo)}</span>` : '<span class="muted">散货</span>'}</td>
+    <td>${esc(custCode(b.customerId))}</td><td class="code">${esc(b.skuCode)}</td><td>${esc(b.lotNo || "")}</td>
+    <td>${b.status === "AVAILABLE" ? "可用" : esc(b.status)}</td>
+    <td class="num">${qty(b.qtyOnHand)}</td><td class="num">${qty(b.qtyAllocated)}</td>
+    <td class="num">${qty(b.qtyOnHand - b.qtyAllocated)}</td></tr>`).join("")
+    || `<tr><td colspan="9" class="muted">没有符合条件的库存。</td></tr>`;
+}
+
+// ---------------------------------------------------------------- billing
+let events = [];
+async function loadBilling() {
+  const cid = $("#bill-customer").value;
+  events = await api(`/billable-events?warehouseId=${state.wh}${cid ? "&customerId=" + cid : ""}`);
+  const totals = {};
+  for (const e of events) {
+    const t = (totals[e.event_type] ||= { qty: 0, cost: 0 });
+    t.qty += Number(e.quantity); t.cost += Number(e.cost_amount || 0);
+  }
+  $("#bill-totals").innerHTML = Object.keys(EVENT).map((k) => {
+    const t = totals[k] || { qty: 0, cost: 0 };
+    return `<div class="total"><span class="muted">${EVENT[k]}</span><b>${k === "SHIPPING_LABEL" ? "$" + money(t.cost) : qty(t.qty)}</b>
+      <span class="note">${k === "SHIPPING_LABEL" ? qty(t.qty) + " 张面单的承运商成本" : k === "PICK_UNIT" ? "件" : k === "PACKAGE" ? "个包裹" : "张订单"}</span></div>`;
+  }).join("");
+  $("#bill-body").innerHTML = events.map((e) => `<tr><td>${when(e.occurred_at)}</td><td>${esc(e.customer_code)}</td>
+    <td class="code">${esc(e.order_no || "")}</td><td>${esc(EVENT[e.event_type] || e.event_type)}</td>
+    <td class="num">${qty(e.quantity)}</td><td class="num">${money(e.cost_amount)}</td></tr>`).join("")
+    || `<tr><td colspan="6" class="muted">还没有计费事件。发出第一张订单后这里会出现记录。</td></tr>`;
+}
+$("#bill-customer").addEventListener("change", loadBilling);
+
+boot();
+</script>
+</body>
+</html>

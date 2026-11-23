@@ -13,9 +13,22 @@ concurrency:
 jobs:
   # 编译 + 单元 / 集成测试（Testcontainers 使用 runner 自带的 Docker）
   build:
-    name: mvn verify
+    name: mvn verify + smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wms
+          POSTGRES_PASSWORD: wms
+          POSTGRES_DB: wms
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U wms"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v5
 
@@ -27,6 +40,18 @@ jobs:
 
       - name: Build and test
         run: mvn -B -ntp verify
+
+      # 用打好的 jar 以 dev 配置真实启动系统，走一遍控制台网页用到的全部接口
+      - name: Start application (dev profile)
+        run: |
+          nohup java -jar target/wms-core-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev > app.log 2>&1 &
+
+      - name: Smoke test (console page + full parcel flow over HTTP)
+        run: tools/smoke_test.sh http://localhost:8080
+
+      - name: Application log
+        if: always()
+        run: tail -n 200 app.log || true
 
       - name: Upload test reports
         if: always()
