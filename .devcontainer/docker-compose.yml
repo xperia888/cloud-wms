@@ -1,0 +1,30 @@
+# Codespaces / Dev Container：应用容器（Java 21 + Maven）+ PostgreSQL 16
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/java:1-21-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    # 与数据库共用网络，应用里直接连 localhost:5432
+    network_mode: service:db
+    environment:
+      WMS_DB_URL: jdbc:postgresql://localhost:5432/wms
+      WMS_DB_USER: wms
+      WMS_DB_PASSWORD: wms
+      PGHOST: localhost
+      PGUSER: wms
+      PGPASSWORD: wms
+      PGDATABASE: wms
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: wms
+      POSTGRES_PASSWORD: wms
+      POSTGRES_DB: wms
+
+volumes:
+  postgres-data:

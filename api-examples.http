@@ -1,0 +1,113 @@
+### =====================================================================
+### Cloud WMS 接口演示（VS Code / Codespaces 的 REST Client 插件）
+### 1. 先在终端启动：mvn spring-boot:run -Dspring-boot.run.profiles=dev
+### 2. 从上到下逐个点击每段上方的 “Send Request”
+###    后面的请求会自动引用前面返回的订单 ID、SKU ID、包裹 ID
+### =====================================================================
+
+@base = http://localhost:8080/api/v1
+@tenant = 1
+@operator = pack-01
+
+### 查看库存（dev 测试数据：仓库 1 = LAX1）
+GET {{base}}/inventory?warehouseId=1
+X-Tenant-Id: {{tenant}}
+
+### 1. 新建出库单（标准出库单 API，任何订单来源都转换成这个格式）
+# @name create
+POST {{base}}/outbound-orders
+X-Tenant-Id: {{tenant}}
+Content-Type: application/json
+
+{
+  "warehouseId": 1,
+  "customerId": 1,
+  "source": "SHOPIFY",
+  "externalOrderNo": "DEMO-{{$timestamp}}",
+  "shipTo": {
+    "name": "Sam Ortiz",
+    "address1": "1 Market St",
+    "city": "San Francisco",
+    "state": "CA",
+    "zip": "94105",
+    "country": "US",
+    "residential": true
+  },
+  "lines": [ { "skuCode": "ACME-HEADLAMP", "qty": 2 } ]
+}
+
+### 2. 分配库存
+POST {{base}}/outbound-orders/{{create.response.body.id}}/allocate
+X-Tenant-Id: {{tenant}}
+
+### 3. 拣货确认
+POST {{base}}/outbound-orders/{{create.response.body.id}}/pick
+X-Tenant-Id: {{tenant}}
+
+### 4. 打包称重
+POST {{base}}/outbound-orders/{{create.response.body.id}}/pack
+X-Tenant-Id: {{tenant}}
+Content-Type: application/json
+
+{
+  "packages": [
+    {
+      "boxType": "BOX-S",
+      "weightLb": 1.2,
+      "items": [ { "skuId": {{create.response.body.$.lines[0].skuId}}, "qty": 2 } ]
+    }
+  ]
+}
+
+### 5. 比价：查看 UPS / FedEx / USPS 全部报价与最优服务（模拟价格）
+POST {{base}}/outbound-orders/{{create.response.body.id}}/rates
+X-Tenant-Id: {{tenant}}
+
+### 6. 按最优服务打单发货（扣库存、记计费事件）
+POST {{base}}/outbound-orders/{{create.response.body.id}}/ship
+X-Tenant-Id: {{tenant}}
+X-Operator: {{operator}}
+
+### 7. 查看订单：状态 SHIPPED、包裹追踪号、运费
+# @name order
+GET {{base}}/outbound-orders/{{create.response.body.id}}
+X-Tenant-Id: {{tenant}}
+
+### 8. 取回 ZPL 面单（可直接发送到 Zebra 热敏打印机）
+GET {{base}}/packages/{{order.response.body.$.packages[0].id}}/label
+X-Tenant-Id: {{tenant}}
+
+### 9. 库存对账（应返回空数组 []）
+GET {{base}}/inventory/reconcile
+X-Tenant-Id: {{tenant}}
+
+### ---------------------------------------------------------------------
+### 其他场景
+### ---------------------------------------------------------------------
+
+### 同一外部单号重复推送：返回 200 与原订单（duplicate = true），不会重复建单
+POST {{base}}/outbound-orders
+X-Tenant-Id: {{tenant}}
+Content-Type: application/json
+
+{
+  "warehouseId": 1, "customerId": 1, "source": "API", "externalOrderNo": "DUP-TEST-1",
+  "shipTo": { "name": "A", "address1": "1 Main St", "city": "Austin", "state": "TX", "zip": "78701", "country": "US", "residential": true },
+  "lines": [ { "skuCode": "ACME-BOTTLE-32", "qty": 1 } ]
+}
+
+### 库存不足：拣货位只有 6 把椅子，订购 30 把 → 409，订单保持 NEW
+# @name short
+POST {{base}}/outbound-orders
+X-Tenant-Id: {{tenant}}
+Content-Type: application/json
+
+{
+  "warehouseId": 1, "customerId": 1, "source": "API", "externalOrderNo": "SHORT-{{$timestamp}}",
+  "shipTo": { "name": "B", "address1": "500 Main St", "city": "Boulder", "state": "CO", "zip": "80302", "country": "US", "residential": false },
+  "lines": [ { "skuCode": "ACME-CHAIR", "qty": 30 } ]
+}
+
+###
+POST {{base}}/outbound-orders/{{short.response.body.id}}/allocate
+X-Tenant-Id: {{tenant}}

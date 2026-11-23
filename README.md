@@ -44,6 +44,20 @@ tools/                       在 PostgreSQL 上回放 Java 中 SQL 的验证脚�
 - **发货三步走**：① 事务内登记 PENDING 发运（防重复打单）→ ② 事务外调用承运商打单 → ③ 事务内写追踪号、按分配扣库存、置 SHIPPED、写计费事件；第 ③ 步失败会自动作废刚打出的面单。
 - **计费事件**：发货时写入 `billable_event`（订单操作费、拣货件数、包裹数、运费成本），同一事件只记一次，P3 月结时汇总成 Invoice。
 
+## 在 GitHub 上运行
+
+**Codespaces（浏览器里运行整个系统）**
+1. 仓库页面 → 绿色 **Code** 按钮 → **Codespaces** → **Create codespace on main**。首次创建约 3–5 分钟（安装 Java、Maven、PostgreSQL 并下载依赖）。
+2. 在下方终端运行：`mvn spring-boot:run -Dspring-boot.run.profiles=dev`
+3. 打开 `api-examples.http`，从上到下点击每段上方的 **Send Request**，即可走完建单 → 分配 → 拣货 → 打包 → 比价 → 发货 → 取面单。
+4. 用完在 github.com/codespaces 停止或删除，避免消耗免费额度。
+
+**Actions（自动编译测试）**：每次推送到 `main` 自动执行 `.github/workflows/ci.yml`：
+- `mvn verify`：编译 + 全部集成测试；
+- 在干净的 PostgreSQL 上执行迁移脚本与测试数据，并运行 `tools/` 下的 SQL 回放检查。
+
+结果在仓库的 **Actions** 页面查看。
+
 ## 本地运行
 
 ```bash
