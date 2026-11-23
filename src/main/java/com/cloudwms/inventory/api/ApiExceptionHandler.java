@@ -1,6 +1,7 @@
 package com.cloudwms.inventory.api;
 
 import com.cloudwms.inventory.InventoryException;
+import com.cloudwms.outbound.OutboundModels.OutboundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,17 @@ public class ApiExceptionHandler {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case INVALID_REQUEST -> HttpStatus.BAD_REQUEST;
             case INSUFFICIENT_AVAILABLE, INSUFFICIENT_ALLOCATED, LOCATION_BLOCKED, LPN_CONFLICT -> HttpStatus.CONFLICT;
+        };
+        return ResponseEntity.status(status).body(Map.of("code", e.getCode().name(), "message", e.getMessage()));
+    }
+
+    @ExceptionHandler(OutboundException.class)
+    public ResponseEntity<Map<String, String>> outbound(OutboundException e) {
+        HttpStatus status = switch (e.getCode()) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case INVALID_REQUEST -> HttpStatus.BAD_REQUEST;
+            case INVALID_STATE, INSUFFICIENT_STOCK, NO_RATE -> HttpStatus.CONFLICT;
+            case CARRIER_ERROR -> HttpStatus.BAD_GATEWAY;
         };
         return ResponseEntity.status(status).body(Map.of("code", e.getCode().name(), "message", e.getMessage()));
     }

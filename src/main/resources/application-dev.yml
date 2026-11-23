@@ -1,0 +1,15 @@
+# 开发配置：mvn spring-boot:run -Dspring-boot.run.profiles=dev
+# - 额外加载 db/dev 下的测试数据
+# - 承运商使用模拟器（不调用真实 UPS / FedEx / USPS）
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/dev
+
+wms:
+  carriers:
+    mode: simulator   # simulator | live（live 需配置各承运商 API 凭证）
+    rate-timeout-ms: 3000
+
+logging:
+  level:
+    com.cloudwms: DEBUG

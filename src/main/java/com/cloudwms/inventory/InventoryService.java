@@ -206,6 +206,17 @@ public class InventoryService {
         }
     }
 
+    /**
+     * 尝试分配，不足时返回 false 而不抛异常。
+     * 供出库分配逐个库位尝试使用：在外层事务中抛出的异常会把整个事务标记为只能回滚，
+     * 所以“试探性”的分配必须用返回值表示失败。
+     */
+    @Transactional
+    public boolean tryAllocate(StockKey key, int qty) {
+        requirePositive(qty);
+        return repo.allocate(key, qty);
+    }
+
     @Transactional
     public void deallocate(StockKey key, int qty) {
         requirePositive(qty);
